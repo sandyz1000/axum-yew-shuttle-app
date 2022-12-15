@@ -1,0 +1,5 @@
+[[proxy]]
+backend = "http://localhost:8000/api/"
+
+[[proxy]]
+backend = "http://localhost:8000/images/"
