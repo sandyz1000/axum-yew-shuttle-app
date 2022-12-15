@@ -41,3 +41,4 @@ target/
 Secrets.toml
 *.pem
 dist/
+frontend/checklist.md

@@ -1,0 +1,920 @@
+{
+  "db": "PostgreSQL",
+  "01c189eb63c78935a6ec2a2634260d075c88ef452dfefa579756f0e9f44b6ae3": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "TextArray"
+        ]
+      }
+    },
+    "query": "\n        INSERT INTO tags (name)\n        SELECT * FROM UNNEST($1::TEXT[])\n        ON CONFLICT DO NOTHING\n        "
+  },
+  "05844dc1c5d406dfe0809b10753f055c7307ef096b67c391258fb1b64af1a107": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "slug",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "title",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "description",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "body",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "created_at",
+          "ordinal": 5,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 6,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "tag_list!",
+          "ordinal": 7,
+          "type_info": "VarcharArray"
+        },
+        {
+          "name": "favorited!",
+          "ordinal": 8,
+          "type_info": "Bool"
+        },
+        {
+          "name": "favorites_count!",
+          "ordinal": 9,
+          "type_info": "Int8"
+        },
+        {
+          "name": "author!: UserProfile",
+          "ordinal": 10,
+          "type_info": "Record"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        null,
+        null,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Text",
+          "Text",
+          "Text",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\n        WITH article AS (\n            UPDATE articles\n            SET\n                title = COALESCE($1, title),\n                description = COALESCE($2, description),\n                body = COALESCE($3, body)\n            WHERE slug = $4 AND author_id = $5\n            RETURNING *\n        )\n        SELECT\n            article.id,\n            article.slug,\n            article.title,\n            article.description,\n            article.body,\n            article.created_at,\n            article.updated_at,\n            COALESCE(\n                (SELECT\n                    array_agg(tags.name ORDER BY tags.name ASC)\n                    FROM article_tags\n                    INNER JOIN tags ON article_tags.tag_id = tags.id\n                    WHERE article_tags.article_id = article.id\n                ),\n                '{}'::VARCHAR[]\n            ) AS \"tag_list!\",\n            ($5 IS NOT NULL AND EXISTS (\n                SELECT  FROM article_favs\n                WHERE article_favs.article_id = article.id\n                AND article_favs.user_id = $5\n            )) AS \"favorited!\",\n            (SELECT COUNT(*)\n                FROM article_favs\n                WHERE article_favs.article_id = article.id\n            ) AS \"favorites_count!\",    \n            (\n                users.id,\n                users.username,\n                users.bio,\n                users.image,\n                EXISTS (\n                    SELECT 1 FROM follows\n                    WHERE follows.follower_id = $5\n                    AND follows.followee_id = users.id\n                )\n            ) AS \"author!: UserProfile\"\n        FROM article\n        INNER JOIN users ON users.id = article.author_id\n        "
+  },
+  "17a8f2c7e45439ea7cf1831a3090f609b7de3fac19362a0075dd2df31f768e16": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\n        INSERT INTO article_favs (article_id, user_id)\n        SELECT articles.id, $2\n            FROM articles\n            WHERE articles.slug = $1\n        "
+  },
+  "2df74eed0c044ce6d71f931b4756d09ed16ae0b62e463debdcc7019a79788e6c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Varchar"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": []
+      }
+    },
+    "query": "\n        SELECT tags.name\n        FROM tags\n        INNER JOIN article_tags ON article_tags.tag_id = tags.id\n        GROUP BY tags.name\n        ORDER BY COUNT(article_tags.tag_id) DESC\n        LIMIT 10\n        "
+  },
+  "2e251e3b11cf8c031a71f9d186888de6e4e458ee628d8bccb8fa3568caf6140c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\n        DELETE FROM articles\n        WHERE slug = $1 AND author_id = $2\n        "
+  },
+  "33b9f8648ac8537fdefdc6fd9a3d3c69d2b150c7e0b9695be96d99b7362867c9": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "username?",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "bio",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "image",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "following!",
+          "ordinal": 4,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        true,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\n        SELECT\n            users.id, users.username AS \"username?\", users.bio, users.image,\n            ($2::INT4 IS NOT NULL AND EXISTS (\n                SELECT 1 FROM follows\n                WHERE follows.follower_id = $2 AND follows.followee_id = users.id\n            )) AS \"following!\"\n        FROM users WHERE username = $1\n        "
+  },
+  "397c11822e5afdd3b23b7ec2adc3edd5312df076d1f16f6d9b76c54e6ebb0c7d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "slug",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "title",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "description",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "body",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "created_at",
+          "ordinal": 5,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 6,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "favorited!",
+          "ordinal": 7,
+          "type_info": "Bool"
+        },
+        {
+          "name": "tag_list!",
+          "ordinal": 8,
+          "type_info": "VarcharArray"
+        },
+        {
+          "name": "favorites_count!",
+          "ordinal": 9,
+          "type_info": "Int8"
+        },
+        {
+          "name": "author!: UserProfile",
+          "ordinal": 10,
+          "type_info": "Record"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        null,
+        null,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Text",
+          "Text",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\n            WITH article AS (\n                INSERT INTO articles (slug, title, description, body, author_id)\n                VALUES ($1, $2, $3, $4, $5)\n                RETURNING *\n            )\n            SELECT\n                article.id,\n                article.slug,\n                article.title,\n                article.description,\n                article.body,\n                article.created_at,\n                article.updated_at,\n                FALSE AS \"favorited!\",\n                '{}'::VARCHAR[] AS \"tag_list!\",\n                CAST(0 as INT8) AS \"favorites_count!\",\n                (\n                    users.id,\n                    users.username,\n                    users.bio,\n                    users.image,\n                    EXISTS (\n                        SELECT 1 FROM follows\n                        WHERE follows.follower_id = $5\n                        AND follows.followee_id = users.id\n                    )\n                ) AS \"author!: UserProfile\"\n            FROM article\n            INNER JOIN users ON users.id = article.author_id\n        "
+  },
+  "56a89f7d994048c48f7d46e913924283092ca93912a065b7e9e5f1a81b98b166": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "TextArray"
+        ]
+      }
+    },
+    "query": "\n        INSERT INTO article_tags (article_id, tag_id)\n        SELECT $1, tags.id FROM tags WHERE tags.name = ANY($2)\n        "
+  },
+  "6fabde89336607df34fe585450d0aad61e4753d3a3c12f94ad36f771aefbf768": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "created_at",
+          "ordinal": 1,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 2,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "body",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "author!: UserProfile",
+          "ordinal": 4,
+          "type_info": "Record"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Text",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\n        WITH comment AS (\n            INSERT INTO comments (body, article_id, author_id)\n            VALUES ($1, (SELECT id FROM articles WHERE slug = $2), $3)\n            RETURNING *\n        )\n        SELECT\n            comment.id,\n            comment.created_at,\n            comment.updated_at,\n            comment.body,\n            (\n                users.id,\n                users.username,\n                users.bio,\n                users.image,\n                ($3 IS NOT NULL AND EXISTS (\n                    SELECT 1 FROM follows\n                    WHERE follows.follower_id = $3\n                    AND follows.followee_id = users.id\n                ))\n            ) AS \"author!: UserProfile\"\n        FROM comment INNER JOIN users ON users.id = comment.author_id\n        "
+  },
+  "850a33823c59b313051afee750601e539083b1e9743ede4fdd8b10e15aa8f3d9": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "username",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "email",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "hash",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "bio",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "image",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "token",
+          "ordinal": 6,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT *, NULL AS token FROM users WHERE email = $1"
+  },
+  "8b82cafd4d1a5b834d2d96cf1a4cd4e5b10be95022d0ac60c1caab074f68ad3a": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "slug",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "title",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "description",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "body",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "created_at",
+          "ordinal": 5,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 6,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "tag_list!",
+          "ordinal": 7,
+          "type_info": "VarcharArray"
+        },
+        {
+          "name": "favorited!",
+          "ordinal": 8,
+          "type_info": "Bool"
+        },
+        {
+          "name": "favorites_count!",
+          "ordinal": 9,
+          "type_info": "Int8"
+        },
+        {
+          "name": "author!: UserProfile",
+          "ordinal": 10,
+          "type_info": "Record"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        null,
+        null,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\n        SELECT\n            articles.id,\n            articles.slug,\n            articles.title,\n            articles.description,\n            articles.body,\n            articles.created_at,\n            articles.updated_at,\n            COALESCE(\n                (SELECT\n                    array_agg(tags.name ORDER BY tags.name ASC)\n                    FROM article_tags\n                    INNER JOIN tags ON article_tags.tag_id = tags.id\n                    WHERE article_tags.article_id = articles.id\n                ),\n                '{}'::VARCHAR[]\n            ) AS \"tag_list!\",\n            ($2::INT4 IS NOT NULL AND EXISTS (\n                SELECT 1 FROM article_favs\n                WHERE article_favs.article_id = articles.id\n                AND article_favs.user_id = $2\n            )) AS \"favorited!\",\n            (SELECT COUNT(*)\n                FROM article_favs\n                WHERE article_favs.article_id = articles.id\n            ) AS \"favorites_count!\",\n            (\n                users.id,\n                users.username,\n                users.bio,\n                users.image,\n                ($2 IS NOT NULL AND EXISTS (\n                    SELECT 1 FROM follows\n                    WHERE follows.follower_id = $2\n                    AND follows.followee_id = users.id\n                ))\n            ) AS \"author!: UserProfile\"\n        FROM articles\n        INNER JOIN users ON articles.author_id = users.id\n        WHERE articles.slug = $1\n        "
+  },
+  "8cec305094193a0b587301443c374aced2b252a9fc1cccbae458da7c20bb12df": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "slug",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "title",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "description",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "body",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "created_at",
+          "ordinal": 5,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 6,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "tag_list!",
+          "ordinal": 7,
+          "type_info": "VarcharArray"
+        },
+        {
+          "name": "favorited!",
+          "ordinal": 8,
+          "type_info": "Bool"
+        },
+        {
+          "name": "favorites_count!",
+          "ordinal": 9,
+          "type_info": "Int8"
+        },
+        {
+          "name": "author!: UserProfile",
+          "ordinal": 10,
+          "type_info": "Record"
+        },
+        {
+          "name": "count!",
+          "ordinal": 11,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Int8",
+          "Int8",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\n        SELECT\n            articles.id,\n            articles.slug,\n            articles.title,\n            articles.description,\n            articles.body,\n            articles.created_at,\n            articles.updated_at,\n            COALESCE(\n                (SELECT\n                    array_agg(tags.name ORDER BY tags.name ASC)\n                    FROM article_tags\n                    INNER JOIN tags ON article_tags.tag_id = tags.id\n                    WHERE article_tags.article_id = articles.id\n                ),\n                '{}'::VARCHAR[]\n            ) AS \"tag_list!\",\n            ($6::INT4 IS NOT NULL AND EXISTS (\n                SELECT 1 FROM article_favs\n                WHERE article_favs.article_id = articles.id\n                AND article_favs.user_id = $6\n            )) AS \"favorited!\",\n            (SELECT COUNT(*)\n                FROM article_favs\n                WHERE article_favs.article_id = articles.id\n            ) AS \"favorites_count!\",\n            (\n                users.id,\n                users.username,\n                users.bio,\n                users.image,\n                ($6 IS NOT NULL AND EXISTS (\n                    SELECT 1 FROM follows\n                    WHERE follows.follower_id = $6\n                    AND follows.followee_id = users.id\n                ))\n            ) AS \"author!: UserProfile\",\n            COUNT(*) OVER() AS \"count!\"\n        FROM articles\n        INNER JOIN users ON articles.author_id = users.id\n        WHERE\n            ($1::VARCHAR IS NULL OR users.username = $1)\n            AND ($2::VARCHAR IS NULL OR EXISTS (\n                SELECT 1 FROM article_favs\n                INNER JOIN users ON article_favs.user_id = users.id\n                WHERE article_favs.article_id = articles.id AND users.username = $2\n            ))\n            AND ($3::VARCHAR IS NULL OR EXISTS (\n                SELECT 1 FROM article_tags\n                INNER JOIN tags ON article_tags.tag_id = tags.id\n                WHERE article_tags.article_id = articles.id AND tags.name = $3\n            ))\n        ORDER BY created_at DESC\n        LIMIT $4 OFFSET $5\n        "
+  },
+  "905c20d724539ab74b1bdab2ec72071f89f749e0b4483d8f75d1bb83ea70a5a5": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "slug",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "title",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "description",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "body",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "created_at",
+          "ordinal": 5,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 6,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "tag_list!",
+          "ordinal": 7,
+          "type_info": "VarcharArray"
+        },
+        {
+          "name": "favorited!",
+          "ordinal": 8,
+          "type_info": "Bool"
+        },
+        {
+          "name": "favorites_count!",
+          "ordinal": 9,
+          "type_info": "Int8"
+        },
+        {
+          "name": "author!: UserProfile",
+          "ordinal": 10,
+          "type_info": "Record"
+        },
+        {
+          "name": "count!",
+          "ordinal": 11,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n        SELECT\n            articles.id,\n            articles.slug,\n            articles.title,\n            articles.description,\n            articles.body,\n            articles.created_at,\n            articles.updated_at,\n            COALESCE(\n                (SELECT\n                    array_agg(tags.name ORDER BY tags.name ASC)\n                    FROM article_tags\n                    INNER JOIN tags ON article_tags.tag_id = tags.id\n                    WHERE article_tags.article_id = articles.id\n                ),\n                '{}'::VARCHAR[]\n            ) AS \"tag_list!\",\n            ($1::INT4 IS NOT NULL AND EXISTS (\n                SELECT 1 FROM article_favs\n                WHERE article_favs.article_id = articles.id\n                AND article_favs.user_id = $1\n            )) AS \"favorited!\",\n            (SELECT COUNT(*)\n                FROM article_favs\n                WHERE article_favs.article_id = articles.id\n            ) AS \"favorites_count!\",\n            (\n                users.id,\n                users.username,\n                users.bio,\n                users.image,\n                TRUE\n            ) AS \"author!: UserProfile\",\n            COUNT(*) OVER() AS \"count!\"\n        FROM articles\n        INNER JOIN users ON articles.author_id = users.id\n        WHERE\n            EXISTS (\n                SELECT 1 FROM follows\n                INNER JOIN users ON follows.followee_id = users.id\n                WHERE follows.follower_id = $1\n                    AND follows.followee_id = articles.author_id \n            )\n        ORDER BY created_at DESC\n        LIMIT $2 OFFSET $3\n        "
+  },
+  "93dae93382be8514e27b860ed5fde949dec0cb534a4f397c0c48901ddfe30b00": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\n        DELETE FROM follows\n        WHERE (follower_id, followee_id) = ($1, $2)\n        "
+  },
+  "a2de5d57c3a047ade71812b0d236539a6ac61b0e404547221557deee3c1cd174": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\n        DELETE FROM article_favs\n            WHERE article_favs.article_id = ANY(\n                SELECT articles.id FROM articles\n                WHERE articles.slug = $1\n            )\n            AND article_favs.user_id = $2\n        "
+  },
+  "b4ace639171b2e953f417f4b3c50beb288aae9131d5a0f4ec144d8d785f60a60": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\n        INSERT INTO follows (follower_id, followee_id)\n        VALUES ($1, $2)\n        "
+  },
+  "b75a8e11bb76c86d0d8602764543bbae625deee8c4209fdb1db554eb2ab5a1c1": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "username",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "email",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "hash",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "bio",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "image",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "token",
+          "ordinal": 6,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Varchar",
+          "Text",
+          "Varchar",
+          "Int4"
+        ]
+      }
+    },
+    "query": "UPDATE users\n            SET (email, username, hash, bio, image) = \n                (\n                    COALESCE($1, email),\n                    COALESCE($2, username),\n                    COALESCE($3, hash),\n                    COALESCE($4, bio),\n                    COALESCE($5, image)\n                )\n            WHERE id = $6\n        RETURNING *, NULL AS token\n        "
+  },
+  "d2fb87da443b06e403550d4f1f1a0d2b74b2fedd4ca272540bda37183cde06e3": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Text",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\n        DELETE FROM comments\n        WHERE comments.id = $1\n            AND comments.article_id = (SELECT id FROM articles WHERE slug = $2)\n            AND comments.author_id = $3\n        "
+  },
+  "d30291c1b960d22ac583b43e311a7bb7810014df4ffd73d6709c7856fae80210": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "created_at",
+          "ordinal": 1,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "updated_at",
+          "ordinal": 2,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "body",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "author!: UserProfile",
+          "ordinal": 4,
+          "type_info": "Record"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Int4"
+        ]
+      }
+    },
+    "query": "\n        SELECT\n            comments.id,\n            comments.created_at,\n            comments.updated_at,\n            comments.body,\n            (\n                users.id,\n                users.username,\n                users.bio,\n                users.image,\n                ($2::INT4 IS NOT NULL AND EXISTS (\n                    SELECT 1 FROM follows\n                    WHERE follows.follower_id = $2\n                    AND follows.followee_id = users.id\n                ))\n            ) AS \"author!: UserProfile\"\n        FROM comments\n        INNER JOIN users ON users.id = comments.author_id\n        WHERE comments.article_id = (SELECT id FROM articles WHERE slug = $1)\n        ORDER BY comments.created_at DESC\n        "
+  },
+  "e99fb7cf2532b56d829a0010528b1a6f64addaf4cd4d59f765d6215bd4920f32": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "username",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "email",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "hash",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "bio",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "image",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "token",
+          "ordinal": 6,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "SELECT *, NULL AS token FROM users WHERE id = $1"
+  },
+  "f3ba1007a6af61a83ca7ee2445407575e1da8b714b232eb689e184cf8f1e8cf2": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "username",
+          "ordinal": 1,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "email",
+          "ordinal": 2,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "hash",
+          "ordinal": 3,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "bio",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "image",
+          "ordinal": 5,
+          "type_info": "Varchar"
+        },
+        {
+          "name": "token",
+          "ordinal": 6,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        null
+      ],
+      "parameters": {
+        "Left": [
+          "Varchar",
+          "Varchar",
+          "Varchar"
+        ]
+      }
+    },
+    "query": "\n        INSERT INTO users (username, email, hash)\n        VALUES ($1, $2, $3)\n        RETURNING *, NULL AS token\n        "
+  }
+}
