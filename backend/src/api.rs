@@ -5,7 +5,7 @@ use axum::{
     Json, TypedHeader,
 };
 use chrono::{DateTime, Utc};
-use jwt_simple::prelude::*;
+use jsonwebtoken::{DecodingKey, EncodingKey};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{Executor, PgPool};
@@ -75,7 +75,7 @@ struct LoginUser {
 
 pub async fn login(
     State(pool): State<PgPool>,
-    State(key): State<RS384KeyPair>,
+    State(key): State<EncodingKey>,
     Json(Login { user }): Json<Login>,
 ) -> AppResult<impl IntoResponse> {
     user.validate()?;
@@ -156,7 +156,7 @@ struct RegistrationUser {
 
 pub async fn registration(
     State(pool): State<PgPool>,
-    State(key): State<RS384KeyPair>,
+    State(key): State<EncodingKey>,
     Json(Registration { user }): Json<Registration>,
 ) -> AppResult<impl IntoResponse> {
     user.validate()?;
@@ -184,7 +184,7 @@ pub async fn registration(
     Ok(Json(json!({ "user": user_auth })))
 }
 
-fn verify_token(token: &str, key: &RS384PublicKey) -> AppResult<UserId> {
+fn verify_token(token: &str, key: &DecodingKey) -> AppResult<UserId> {
     let claim = auth::verify_jwt(token, &key)?;
     Ok(claim.user_id)
 }
@@ -228,7 +228,7 @@ async fn get_user_profile(
     Ok(user)
 }
 
-async fn auth_user(pool: &PgPool, token: &str, key: &RS384PublicKey) -> AppResult<UserAuth> {
+async fn auth_user(pool: &PgPool, token: &str, key: &DecodingKey) -> AppResult<UserAuth> {
     let user_id = verify_token(token, key)?;
     let mut user = get_user(user_id, pool).await?;
     user.token = Some(token.to_string());
@@ -237,7 +237,7 @@ async fn auth_user(pool: &PgPool, token: &str, key: &RS384PublicKey) -> AppResul
 
 pub async fn get_current_user(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     TypedHeader(Authorization(token)): TypedHeader<Authorization<JWTToken>>,
 ) -> AppResult<impl IntoResponse> {
     let user = auth_user(&pool, &token.0, &key).await?;
@@ -263,7 +263,7 @@ struct UpdateUserData {
 
 pub async fn update_user(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     TypedHeader(Authorization(token)): TypedHeader<Authorization<JWTToken>>,
     Json(UpdateUser { user: data }): Json<UpdateUser>,
 ) -> AppResult<impl IntoResponse> {
@@ -305,7 +305,7 @@ pub async fn update_user(
 
 pub async fn get_profile(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     Path(username): Path<String>,
     token: Option<TypedHeader<Authorization<JWTToken>>>,
 ) -> AppResult<impl IntoResponse> {
@@ -320,7 +320,7 @@ pub async fn get_profile(
 
 pub async fn follow_user(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     Path(username): Path<String>,
     TypedHeader(Authorization(token)): TypedHeader<Authorization<JWTToken>>,
 ) -> AppResult<impl IntoResponse> {
@@ -345,7 +345,7 @@ pub async fn follow_user(
 
 pub async fn unfollow_user(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     Path(username): Path<String>,
     TypedHeader(Authorization(token)): TypedHeader<Authorization<JWTToken>>,
 ) -> AppResult<impl IntoResponse> {
@@ -417,7 +417,7 @@ pub struct ListArticlesQuery {
 
 pub async fn list_articles(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     Query(query): Query<ListArticlesQuery>,
     token: Option<TypedHeader<Authorization<JWTToken>>>,
 ) -> AppResult<impl IntoResponse> {
@@ -521,7 +521,7 @@ pub struct FeedArticlesQuery {
 
 pub async fn feed_articles(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     Query(query): Query<FeedArticlesQuery>,
     TypedHeader(Authorization(token)): TypedHeader<Authorization<JWTToken>>,
 ) -> AppResult<impl IntoResponse> {
@@ -661,7 +661,7 @@ async fn get_article_by_slug(
 
 pub async fn get_article(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     Path(slug): Path<String>,
     token: Option<TypedHeader<Authorization<JWTToken>>>,
 ) -> AppResult<impl IntoResponse> {
@@ -693,7 +693,7 @@ struct CreateArticleData {
 
 pub async fn create_article(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     TypedHeader(Authorization(token)): TypedHeader<Authorization<JWTToken>>,
     Json(CreateArticle { article }): Json<CreateArticle>,
 ) -> AppResult<impl IntoResponse> {
@@ -790,7 +790,7 @@ struct UpdateArticleData {
 
 pub async fn update_article(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     Path(slug): Path<String>,
     TypedHeader(Authorization(token)): TypedHeader<Authorization<JWTToken>>,
     Json(UpdateArticle { article }): Json<UpdateArticle>,
@@ -863,7 +863,7 @@ pub async fn update_article(
 
 pub async fn delete_article(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     Path(slug): Path<String>,
     TypedHeader(Authorization(token)): TypedHeader<Authorization<JWTToken>>,
 ) -> AppResult<impl IntoResponse> {
@@ -905,7 +905,7 @@ struct AddCommentData {
 
 pub async fn add_comment(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     Path(slug): Path<String>,
     TypedHeader(Authorization(token)): TypedHeader<Authorization<JWTToken>>,
     Json(AddComment { comment }): Json<AddComment>,
@@ -950,7 +950,7 @@ pub async fn add_comment(
 
 pub async fn get_comments(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     Path(slug): Path<String>,
     token: Option<TypedHeader<Authorization<JWTToken>>>,
 ) -> AppResult<impl IntoResponse> {
@@ -998,7 +998,7 @@ pub struct DeleteCommentPath {
 
 pub async fn delete_comment(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     Path(DeleteCommentPath { slug, id }): Path<DeleteCommentPath>,
     TypedHeader(Authorization(token)): TypedHeader<Authorization<JWTToken>>,
 ) -> AppResult<impl IntoResponse> {
@@ -1023,7 +1023,7 @@ pub async fn delete_comment(
 
 pub async fn favorite_article(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     Path(slug): Path<String>,
     TypedHeader(Authorization(token)): TypedHeader<Authorization<JWTToken>>,
 ) -> AppResult<impl IntoResponse> {
@@ -1049,7 +1049,7 @@ pub async fn favorite_article(
 
 pub async fn unfavorite_article(
     State(pool): State<PgPool>,
-    State(key): State<RS384PublicKey>,
+    State(key): State<DecodingKey>,
     Path(slug): Path<String>,
     TypedHeader(Authorization(token)): TypedHeader<Authorization<JWTToken>>,
 ) -> AppResult<impl IntoResponse> {

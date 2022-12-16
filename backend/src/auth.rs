@@ -1,21 +1,32 @@
 use axum::headers::authorization::Credentials;
-use jwt_simple::prelude::*;
+use jsonwebtoken::{encode, Algorithm, DecodingKey, EncodingKey, Header};
+use serde::{Deserialize, Serialize};
 
 use crate::{api::UserId, error::AppResult};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CustomClaim {
+pub struct Claims {
     pub user_id: UserId,
+    exp: i64,
 }
 
-pub fn generate_jwt(user_id: UserId, key: &RS384KeyPair) -> AppResult<String> {
-    let claims = Claims::with_custom_claims(CustomClaim { user_id }, Duration::from_days(30));
-    Ok(key.sign(claims)?)
+pub fn generate_jwt(user_id: UserId, key: &EncodingKey) -> AppResult<String> {
+    let exp = (chrono::Utc::now() + chrono::Duration::days(30)).timestamp();
+
+    let claims = Claims { user_id, exp };
+
+    let token = encode(&Header::new(Algorithm::RS384), &claims, key)?;
+
+    Ok(token)
 }
 
-pub fn verify_jwt(token: &str, key: &RS384PublicKey) -> AppResult<CustomClaim> {
-    let claims = key.verify_token(token, None)?;
-    Ok(claims.custom)
+pub fn verify_jwt(token: &str, key: &DecodingKey) -> AppResult<Claims> {
+    let header = jsonwebtoken::decode_header(token)?;
+
+    let claims =
+        jsonwebtoken::decode::<Claims>(token, key, &jsonwebtoken::Validation::new(header.alg))?
+            .claims;
+    Ok(claims)
 }
 
 pub struct JWTToken(pub String);

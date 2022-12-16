@@ -11,6 +11,8 @@ pub enum AppError {
     ValidationError(#[from] validator::ValidationErrors),
     #[error("Authentication failed: {0:?}")]
     AuthenticationError(password_hash::Error),
+    #[error("JWT error: {0:?}")]
+    JwtError(#[from] jsonwebtoken::errors::Error),
     #[error("Forbidden request")]
     ForbiddenError(serde_json::Value),
     #[error("SQL failed: {0:?}")]
@@ -30,6 +32,10 @@ impl IntoResponse for AppError {
                 Json(json!({ "error": err })),
             ),
             Self::AuthenticationError(err) => (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({ "error": err.to_string() })),
+            ),
+            Self::JwtError(err) => (
                 StatusCode::UNAUTHORIZED,
                 Json(json!({ "error": err.to_string() })),
             ),

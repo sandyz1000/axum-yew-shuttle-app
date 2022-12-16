@@ -6,24 +6,42 @@ use std::path::PathBuf;
 
 use api::prepare_db;
 use axum::{
+    extract::FromRef,
     http::StatusCode,
     routing::{delete, get, get_service, post, put},
     Router,
 };
 use axum_extra::routing::SpaRouter;
-use axum_macros::FromRef;
-use jwt_simple::prelude::*;
+use jsonwebtoken::{DecodingKey, EncodingKey};
 use shuttle_secrets::SecretStore;
 use shuttle_service::error::CustomError;
 use sqlx::PgPool;
 use sync_wrapper::SyncWrapper;
 use tower_http::services::ServeDir;
 
-#[derive(Clone, FromRef)]
+#[derive(Clone)]
 struct AppState {
     pool: PgPool,
-    key_pair: RS384KeyPair,
-    public_key: RS384PublicKey,
+    encoding_key: EncodingKey,
+    decoding_key: DecodingKey,
+}
+
+impl FromRef<AppState> for PgPool {
+    fn from_ref(app_state: &AppState) -> PgPool {
+        app_state.pool.clone()
+    }
+}
+
+impl FromRef<AppState> for EncodingKey {
+    fn from_ref(app_state: &AppState) -> EncodingKey {
+        app_state.encoding_key.clone()
+    }
+}
+
+impl FromRef<AppState> for DecodingKey {
+    fn from_ref(app_state: &AppState) -> DecodingKey {
+        app_state.decoding_key.clone()
+    }
 }
 
 #[shuttle_service::main]
@@ -36,8 +54,8 @@ async fn axum(
     let private_key = secret_store.get("private_key").unwrap();
     let public_key = secret_store.get("public_key").unwrap();
 
-    let key_pair = RS384KeyPair::from_pem(&private_key)?;
-    let public_key = RS384PublicKey::from_pem(&public_key)?;
+    let encoding_key = EncodingKey::from_rsa_pem(private_key.as_bytes()).unwrap();
+    let decoding_key = DecodingKey::from_rsa_pem(public_key.as_bytes()).unwrap();
 
     prepare_db(&pool).await.map_err(CustomError::new)?;
 
@@ -77,8 +95,8 @@ async fn axum(
         )
         .with_state(AppState {
             pool,
-            key_pair,
-            public_key,
+            encoding_key,
+            decoding_key,
         });
 
     Ok(SyncWrapper::new(router))

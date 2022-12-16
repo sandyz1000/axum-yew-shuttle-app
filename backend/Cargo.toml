@@ -15,13 +15,15 @@ sync_wrapper = "0.1.1"
 
 axum = { version = "0.6.1", features = ["headers"] }
 axum-extra = { version = "0.4.2", features = ["spa"] }
-axum-macros = "0.3.0"
+# axum-macros = "0.3.0"
 
 anyhow = "1.0.66"
 argon2 = "0.4.1"
 chrono = "0.4"
-jsonwebtoken = "8"
-jwt-simple = "0.11.2"
+jsonwebtoken = { version = "8.2.0", default-features = false, features = [
+    "use_pem",
+] }
+# jwt-simple = "0.11.2"
 log = "0.4.17"
 password-hash = "0.4.2"
 rand = "0.8.5"
