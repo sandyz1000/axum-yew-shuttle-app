@@ -17,7 +17,7 @@ use shuttle_secrets::SecretStore;
 use shuttle_service::error::CustomError;
 use sqlx::PgPool;
 use sync_wrapper::SyncWrapper;
-use tower_http::services::ServeDir;
+use tower_http::{compression::CompressionLayer, services::ServeDir};
 
 #[derive(Clone)]
 struct AppState {
@@ -47,17 +47,23 @@ impl FromRef<AppState> for DecodingKey {
 #[shuttle_service::main]
 async fn axum(
     #[shuttle_secrets::Secrets] secret_store: SecretStore,
-    #[shuttle_static_folder::StaticFolder(folder = "assets/images")] images_folder: PathBuf,
+    #[shuttle_static_folder::StaticFolder(folder = "images")] images_folder: PathBuf,
     #[shuttle_static_folder::StaticFolder(folder = "dist")] dist_folder: PathBuf,
     #[shuttle_aws_rds::Postgres] pool: PgPool,
 ) -> shuttle_service::ShuttleAxum {
+    log::info!("xxx: 1");
     let private_key = secret_store.get("private_key").unwrap();
+    log::info!("xxx: 2");
     let public_key = secret_store.get("public_key").unwrap();
+    log::info!("xxx: 3");
 
     let encoding_key = EncodingKey::from_rsa_pem(private_key.as_bytes()).unwrap();
+    log::info!("xxx: 4");
     let decoding_key = DecodingKey::from_rsa_pem(public_key.as_bytes()).unwrap();
+    log::info!("xxx: 5");
 
     prepare_db(&pool).await.map_err(CustomError::new)?;
+    log::info!("xxx: 6");
 
     let router = Router::new()
         .route("/api/users/login", post(api::login))
@@ -86,7 +92,7 @@ async fn axum(
         )
         .route("/api/tags", get(api::get_tags))
         .route("/api/initialize", post(api::initialize))
-        .merge(SpaRouter::new("/", dist_folder))
+        .merge(SpaRouter::new("/", dist_folder).index_file("index.html"))
         .nest_service(
             "/images",
             get_service(ServeDir::new(images_folder)).handle_error(|err| async move {
@@ -97,7 +103,8 @@ async fn axum(
             pool,
             encoding_key,
             decoding_key,
-        });
+        })
+        .layer(CompressionLayer::new());
 
     Ok(SyncWrapper::new(router))
 }

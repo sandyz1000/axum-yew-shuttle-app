@@ -303,11 +303,20 @@ impl RequestBuilderExt for RequestBuilder {
 }
 
 fn get_response<T: DeserializeOwned>(req: RequestBuilder) -> anyhow::Result<T> {
-    let resp = req.send()?;
+    for _ in 0..5 {
+        let resp = req.try_clone().unwrap().send()?;
 
-    if resp.status().is_success() {
-        Ok(resp.json()?)
-    } else {
-        Err(anyhow::anyhow!("request failed: {}", resp.text()?))
+        if resp.status().is_success() {
+            return Ok(resp.json()?);
+        }
+
+        if resp.status().as_u16() == 503 {
+            println!("Service Unavailable, retrying...");
+            continue;
+        }
+
+        return Err(anyhow::anyhow!("request failed: {}", resp.text()?));
     }
+
+    Err(anyhow::anyhow!("request failed after 5 retries"))
 }
