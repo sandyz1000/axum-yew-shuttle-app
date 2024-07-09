@@ -42,4 +42,4 @@ Secrets.toml
 *.pem
 frontend/checklist.md
 
-# dist/
+dist/

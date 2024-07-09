@@ -39,7 +39,8 @@ pub fn Profile(props: &ProfileProps) -> Html {
 
     let cur_tab = use_state(|| FeedType::User(username.clone()));
 
-    use_effect_with_deps(
+    use_effect_with(
+        (username.clone(), auth.clone()),
         {
             let reload_profile = reload_profile.clone();
             let cur_tab = cur_tab.clone();
@@ -48,8 +49,7 @@ pub fn Profile(props: &ProfileProps) -> Html {
                 cur_tab.set(FeedType::User(username));
                 reload_profile.run();
             }
-        },
-        (username.clone(), auth.clone()),
+        }
     );
 
     let tabs = vec![

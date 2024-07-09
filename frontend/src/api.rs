@@ -20,11 +20,13 @@ pub struct ValidationErrors(pub HashMap<String, Vec<ValidationError>>);
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
     #[error("network error")]
-    NetworkError(#[from] gloo_net::Error),
+    NetworkError(#[from] reqwest::Error),
     #[error("{0}")]
     ValidationError(#[from] ValidationErrors),
     #[error("{0}")]
     AppError(serde_json::Value),
+    #[error("{0}")]
+    SerdeError(serde_json::Error)
 }
 
 impl ApiError {
@@ -49,6 +51,7 @@ impl ApiError {
                     .map(|(key, value)| format!("{key} {}", value.as_str().unwrap()))
                     .collect()
             }
+            ApiError::SerdeError(_) => todo!(),
         }
     }
 }
@@ -151,31 +154,36 @@ pub struct TagsResp {
     pub tags: Vec<String>,
 }
 
-pub struct ApiRequest(Request);
+// TODO: Replace this with reqwest
+pub struct ApiRequest(reqwest::RequestBuilder);
 
 impl ApiRequest {
     pub fn get(url: impl AsRef<str>) -> Self {
-        Self(Request::get(url.as_ref()))
+        let client = reqwest::Client::new();
+        Self(client.get(url.as_ref()))
     }
 
     pub fn post(url: impl AsRef<str>) -> Self {
-        Self(Request::post(url.as_ref()))
+        let client = reqwest::Client::new();
+        Self(client.post(url.as_ref()))
     }
 
     pub fn put(url: impl AsRef<str>) -> Self {
-        Self(Request::put(url.as_ref()))
+        let client = reqwest::Client::new();
+        Self(client.put(url.as_ref()))
     }
 
     pub fn delete(url: impl AsRef<str>) -> Self {
-        Self(Request::delete(url.as_ref()))
+        let client = reqwest::Client::new();
+        Self(client.delete(url.as_ref()))
     }
 
     pub fn query<'a, T, V>(self, params: T) -> Self
     where
-        T: IntoIterator<Item = (&'a str, V)>,
+        T: IntoIterator<Item = (&'a str, V)> + Serialize,
         V: AsRef<str>,
     {
-        Self(self.0.query(params))
+        Self(self.0.query(&params))
     }
 
     pub fn auth(self, auth: Option<&UserAuth>) -> Self {
@@ -190,7 +198,7 @@ impl ApiRequest {
     }
 
     pub fn json(self, json: &impl Serialize) -> Self {
-        Self(self.0.json(json).unwrap())
+        Self(self.0.json(json))
     }
 
     pub async fn json_response<T: DeserializeOwned>(self) -> Result<T, ApiError> {
@@ -200,21 +208,19 @@ impl ApiRequest {
             log::error!("Network error: {err:?}");
             ApiError::NetworkError(err)
         })?;
-
-        // log::info!("Response: {resp:?}");
-
-        if resp.ok() {
-            Ok(resp.json().await.map_err(|err| {
-                log::error!("Response json error: {err:?}");
-                err
-            })?)
-        } else if resp.status() == 422 {
-            let json: JsonError<ValidationErrors> = resp.json().await?;
-            Err(ApiError::ValidationError(json.error))?
-        } else {
-            let json: JsonError<serde_json::Value> = resp.json().await?;
-            Err(ApiError::AppError(json.error))?
+        
+        let status = resp.status();
+        if status == 422 {
+            let json: JsonError<ValidationErrors> = resp.json().await.unwrap();
+            return Err(ApiError::ValidationError(json.error));
         }
+
+        let data = resp.json::<T>().await.map_err(|err| {
+            log::error!("Response json error: {err:?}");
+            ApiError::NetworkError(err)
+        })?;
+        
+        Ok(data)
     }
 }
 

@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use gloo_net::http::Request;
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, AUTHORIZATION};
 use gloo_storage::{LocalStorage, Storage};
 use yew::prelude::*;
 use yew_hooks::{use_async_with_options, UseAsyncOptions};
@@ -75,8 +75,17 @@ impl PartialEq for UserAuthError {
 }
 
 async fn get_user_auth(token: &str) -> Result<UserAuth, ApiError> {
-    let resp = Request::get("/api/user")
-        .header("Authorization", &format!("Token {token}"))
+        let client = reqwest::Client::new();
+
+        // Create a header map and insert custom headers
+        let mut headers = HeaderMap::new();
+        let auth = HeaderValue::from_str(format!("Token {token}").as_str()).unwrap();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        headers.insert(AUTHORIZATION, auth);
+
+    let resp = client
+        .get("/api/user")
+        .headers(headers)
         .send()
         .await?
         .json::<UserAuthResp>()

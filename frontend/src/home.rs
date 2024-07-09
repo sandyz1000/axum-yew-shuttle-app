@@ -15,7 +15,8 @@ pub fn Home() -> Html {
 
     let cur_tab = use_state(|| FeedType::Global);
 
-    use_effect_with_deps(
+    use_effect_with(
+        auth.is_loading(),
         {
             let feed_type = cur_tab.clone();
             let auth = auth.clone();
@@ -24,8 +25,7 @@ pub fn Home() -> Html {
                     feed_type.set(FeedType::UserFeed);
                 }
             }
-        },
-        auth.is_loading(),
+        }
     );
 
     let mut tabs = vec![];

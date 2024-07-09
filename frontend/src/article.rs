@@ -130,8 +130,8 @@ pub fn Article(props: &ArticleProps) -> Html {
         })
     };
 
-    use_effect_with_deps(move |_| reload_article.run(), auth.clone());
-    use_effect_with_deps(move |_| reload_comments.run(), auth.clone());
+    use_effect_with(auth.clone(), move |_| reload_article.run());
+    use_effect_with(auth.clone(), move |_| reload_comments.run());
 
     html! {
         <div class="article-page">
@@ -391,7 +391,7 @@ pub fn ArticleMeta(props: &ArticleMetaProps) -> Html {
         return html! {};
     };
 
-    let date = DateTime::<Local>::from(article.created_at).format("%B %e, %Y");
+    let date = DateTime::<Local>::from(article.created_at).format("%B %e, %Y").to_string();
 
     let my_article = article_state
         .as_ref()
@@ -502,7 +502,7 @@ pub fn CommentCard(props: &CommentCardProps) -> Html {
 
     let auth = use_context::<crate::auth::AuthContext>().unwrap();
 
-    let date = DateTime::<Local>::from(comment.created_at).format("%B %e, %Y");
+    let date = DateTime::<Local>::from(comment.created_at).format("%B %e, %Y").to_string();
 
     let on_delete = on_delete.clone();
     let comment_id = comment.id;

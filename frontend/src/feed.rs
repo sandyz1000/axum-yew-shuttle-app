@@ -75,12 +75,12 @@ pub fn Feed(props: &FeedProps) -> Html {
 
     let cur_page = use_state_eq(|| 0);
 
-    use_effect_with_deps(
+    use_effect_with(
+        feed_type.clone(),
         {
             let cur_page = cur_page.clone();
             move |_| cur_page.set(0)
         },
-        feed_type.clone(),
     );
 
     let feed = {
@@ -111,15 +111,15 @@ pub fn Feed(props: &FeedProps) -> Html {
 
     let update_feed = use_bool_toggle(false);
 
-    use_effect_with_deps(
+    use_effect_with(
+        ((*feed_type).clone(), *update_feed, *cur_page),
         {
             let feed = feed.clone();
             move |_| {
                 feed.run();
                 || {}
             }
-        },
-        ((*feed_type).clone(), *update_feed, *cur_page),
+        }
     );
 
     let fav_arg = use_state(|| None);
@@ -214,7 +214,7 @@ pub fn ArticleCard(props: &ArticleCardProps) -> Html {
         fav_callback,
     } = props;
 
-    let date = DateTime::<Local>::from(article.created_at).format("%B %e, %Y");
+    let date = DateTime::<Local>::from(article.created_at).format("%B %e, %Y").to_string();
     let btn_outline = if article.favorited {
         "btn-primary"
     } else {

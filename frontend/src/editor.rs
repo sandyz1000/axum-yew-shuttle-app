@@ -76,12 +76,12 @@ pub fn Editor(props: &EditorProps) -> Html {
         }
     });
 
-    use_effect_with_deps(
+    use_effect_with(
+        article_data.clone(),
         {
             let publish = publish.clone();
             move |_| publish.run()
-        },
-        article_data.clone(),
+        }
     );
 
     let error_message = if let Some(err) = &publish.error {
