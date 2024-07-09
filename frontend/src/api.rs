@@ -1,7 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
 use chrono::{DateTime, Utc};
-use gloo_net::http::Request;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
 use validator::ValidationError;
@@ -208,7 +207,7 @@ impl ApiRequest {
             log::error!("Network error: {err:?}");
             ApiError::NetworkError(err)
         })?;
-        
+
         let status = resp.status();
         if status == 422 {
             let json: JsonError<ValidationErrors> = resp.json().await.unwrap();
